@@ -1,0 +1,42 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum StatusAgendamento {
+  AGENDADO
+  CONCLUIDO
+  CANCELADO
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  email        String        @unique
+  password     String
+  role         Role          @default(USER)
+  agendamentos Agendamento[]
+}
+
+model Agendamento {
+  id        Int               @id @default(autoincrement())
+  nomePet   String
+  especie   String
+  servico   String
+  data      DateTime
+  status    StatusAgendamento @default(AGENDADO)
+  usuarioId Int
+  usuario   User              @relation(fields: [usuarioId], references: [id])
+}
