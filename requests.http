@@ -1,0 +1,136 @@
+@baseUrl = http://localhost:3000
+
+### Login dos usuários do seed (senha: 123456)
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@petshop.com", "password": "123456" }
+
+###
+# @name loginMaria
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "maria@petshop.com", "password": "123456" }
+
+###
+# @name loginJoao
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "joao@petshop.com", "password": "123456" }
+
+###
+@tokenAdmin = {{loginAdmin.response.body.token}}
+@tokenMaria = {{loginMaria.response.body.token}}
+@tokenJoao = {{loginJoao.response.body.token}}
+
+### T1 - Cadastro válido (resposta sem senha) -> 201
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{ "nome": "Cliente Novo", "email": "novo{{$timestamp}}@petshop.com", "password": "123456" }
+
+### T1b - Senha curta -> 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{ "nome": "Sem Senha", "email": "x@petshop.com", "password": "123" }
+
+### T2 - Cadastro com e-mail repetido -> 409
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{ "nome": "Maria Repetida", "email": "maria@petshop.com", "password": "123456" }
+
+### T3 - Login com senha errada -> 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "maria@petshop.com", "password": "senhaerrada" }
+
+### T4 - Rota protegida sem token -> 401
+GET {{baseUrl}}/agendamentos
+
+### T4b - Formato errado (sem Bearer) -> 401
+GET {{baseUrl}}/agendamentos
+Authorization: {{tokenMaria}}
+
+### T4c - Token inválido -> 401
+GET {{baseUrl}}/agendamentos
+Authorization: Bearer abc.def.ghi
+
+### T5 - Rota protegida com token válido -> 200
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{tokenMaria}}
+
+### T5b - Maria lista: só os dela -> 200
+GET {{baseUrl}}/agendamentos
+Authorization: Bearer {{tokenMaria}}
+
+### T5c - Admin lista: todos -> 200
+GET {{baseUrl}}/agendamentos
+Authorization: Bearer {{tokenAdmin}}
+
+### João cria um agendamento (usado no T7) -> 201
+# @name criarJoao
+POST {{baseUrl}}/agendamentos
+Content-Type: application/json
+Authorization: Bearer {{tokenJoao}}
+
+{ "nomePet": "Rex", "especie": "Cachorro", "servico": "Vacina", "data": "2026-12-01T15:00:00.000Z" }
+
+### T6 - Criar mandando o dono no body (ignorado; usuarioId sai do token) -> 201
+POST {{baseUrl}}/agendamentos
+Content-Type: application/json
+Authorization: Bearer {{tokenMaria}}
+
+{ "nomePet": "Luna", "especie": "Gato", "servico": "Banho", "data": "2026-12-02T11:00:00.000Z", "usuarioId": 999 }
+
+### T7 - Maria alterando agendamento do João -> 403
+PUT {{baseUrl}}/agendamentos/{{criarJoao.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{tokenMaria}}
+
+{ "status": "CANCELADO" }
+
+### T7b - Dono (João) altera o próprio -> 200
+PUT {{baseUrl}}/agendamentos/{{criarJoao.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{tokenJoao}}
+
+{ "servico": "Vacina e vermífugo" }
+
+### T7c - ADMIN altera o de qualquer um -> 200
+PUT {{baseUrl}}/agendamentos/{{criarJoao.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{tokenAdmin}}
+
+{ "status": "CONCLUIDO" }
+
+### T8 - USER em rota de ADMIN -> 403
+GET {{baseUrl}}/users
+Authorization: Bearer {{tokenMaria}}
+
+### T9 - ADMIN em rota de ADMIN -> 200
+GET {{baseUrl}}/users
+Authorization: Bearer {{tokenAdmin}}
+
+### T9b - ADMIN com role inválido -> 400
+PATCH {{baseUrl}}/users/2/role
+Content-Type: application/json
+Authorization: Bearer {{tokenAdmin}}
+
+{ "role": "SUPERUSER" }
+
+### T10 - Recurso inexistente -> 404
+PUT {{baseUrl}}/agendamentos/99999
+Content-Type: application/json
+Authorization: Bearer {{tokenMaria}}
+
+{ "status": "CANCELADO" }
+
+### T10b - DELETE inexistente -> 404
+DELETE {{baseUrl}}/agendamentos/99999
+Authorization: Bearer {{tokenMaria}}
